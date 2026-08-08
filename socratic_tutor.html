@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Socratic — a tutor that asks, not tells</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+  :root {
+    --ink: #e8efe9;
+    --bg: #0a0f0c;
+    --bg-deep: #0d1410;
+    --panel: #121b16;
+    --line: #24352b;
+    --line-soft: #1b2820;
+    --teal: #2f9c82;
+    --teal-bright: #45c3a4;
+    --teal-wash: #14251e;
+    --clay: #d98a3f;
+    --clay-wash: #241a11;
+    --muted: #8ba295;
+    --mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+    --sans: "Space Grotesk", -apple-system, system-ui, sans-serif;
+    --display: "Fraunces", Georgia, serif;
+  }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0; font-family: var(--sans); background: var(--bg); color: var(--ink);
+    line-height: 1.55; -webkit-font-smoothing: antialiased;
+  }
+  @media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
+  .wrap { max-width: 940px; margin: 0 auto; padding: 0 24px; }
+
+  header {
+    padding: 32px 0 28px;
+    background: radial-gradient(circle at 14% -30%, var(--teal-wash), transparent 44%), var(--bg-deep);
+    border-bottom: 1px solid var(--line);
+  }
+  .brandrow { display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap; }
+  .mark { display: flex; align-items: center; gap: 14px; }
+  .glyph {
+    width: 42px; height: 42px; flex: 0 0 auto; border: 1.5px solid var(--teal); border-radius: 11px;
+    display: grid; place-items: center; background: var(--panel); font-family: var(--display);
+    font-size: 22px; color: var(--teal-bright); font-style: italic;
+  }
+  .wordmark { font-family: var(--display); font-size: 25px; font-weight: 600; letter-spacing: -0.5px; }
+  .wordmark span { font-style: italic; font-weight: 400; color: var(--teal); }
+  .kicker { font-family: var(--mono); font-size: 11px; letter-spacing: 1.4px; text-transform: uppercase; color: var(--muted); text-align: right; }
+  .lede { font-family: var(--display); font-size: clamp(20px, 3vw, 29px); font-weight: 400; line-height: 1.25; max-width: 600px; margin: 22px 0 0; letter-spacing: -0.3px; }
+  .lede em { font-style: italic; color: var(--teal); }
+  .nokey { display: inline-flex; align-items: center; gap: 7px; margin-top: 14px; font-family: var(--mono); font-size: 11px; color: var(--teal-bright); border: 1px solid var(--line); border-radius: 20px; padding: 5px 12px; background: var(--teal-wash); }
+
+  .setup { padding: 24px 0; border-bottom: 1px solid var(--line); }
+  .panelcard { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 22px; }
+  .row { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+  .filebtn {
+    display: inline-flex; align-items: center; gap: 8px; padding: 12px 18px; border: 1px solid var(--teal);
+    background: var(--teal-wash); color: var(--teal-bright); font-family: var(--mono); font-size: 12.5px;
+    cursor: pointer; border-radius: 9px; transition: all .15s;
+  }
+  .filebtn:hover { background: var(--teal); color: #06110d; }
+  input[type=file] { display: none; }
+  .filenames { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .hint { font-size: 13px; color: var(--muted); margin-top: 14px; line-height: 1.6; }
+
+  .doclist { margin-top: 16px; display: none; }
+  .doc-chip {
+    display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 11.5px;
+    background: var(--bg-deep); border: 1px solid var(--line); border-radius: 20px; padding: 5px 12px; margin: 0 6px 6px 0;
+  }
+  .doc-chip .cnt { color: var(--muted); font-size: 10px; }
+
+  .concepts { padding: 24px 0; display: none; }
+  .section-title { font-family: var(--display); font-size: 20px; font-weight: 500; margin: 0 0 4px; }
+  .section-sub { font-family: var(--mono); font-size: 11px; color: var(--muted); margin-bottom: 16px; letter-spacing: 0.4px; }
+  .concept-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px; }
+  .concept-card {
+    background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; cursor: pointer;
+    transition: border-color .15s, transform .1s;
+  }
+  .concept-card:hover { border-color: var(--teal); transform: translateY(-1px); }
+  .concept-card h3 { font-family: var(--sans); font-size: 15px; font-weight: 600; margin: 0 0 6px; color: var(--teal-bright); }
+  .concept-card p { font-size: 12.5px; color: var(--muted); margin: 0; }
+  .concept-card .src { font-family: var(--mono); font-size: 10px; color: var(--muted); margin-top: 8px; }
+
+  .session { padding: 24px 0 40px; display: none; }
+  .session-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+  .session-head h2 { font-family: var(--display); font-size: 22px; font-weight: 500; margin: 0; }
+  .backbtn { font-family: var(--mono); font-size: 11.5px; color: var(--muted); background: none; border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; cursor: pointer; }
+  .backbtn:hover { color: var(--teal-bright); border-color: var(--teal); }
+
+  .chat { margin-bottom: 20px; }
+  .turn { margin-bottom: 18px; animation: rise .35s ease both; }
+  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+  .turn-role { font-family: var(--mono); font-size: 10px; text-transform: uppercase; letter-spacing: 1.4px; margin-bottom: 6px; display: flex; align-items: center; gap: 8px; }
+  .turn-role::before { content: ""; width: 16px; height: 1.5px; }
+  .turn.tutor .turn-role { color: var(--teal); }
+  .turn.tutor .turn-role::before { background: var(--teal); }
+  .turn.you .turn-role { color: var(--clay); }
+  .turn.you .turn-role::before { background: var(--clay); }
+  .bubble { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; }
+  .turn.you .bubble { background: var(--clay-wash); border-color: #3a2a17; }
+  .bubble p { margin: 0 0 8px; } .bubble p:last-child { margin: 0; }
+  .stage-tag { display: inline-block; font-family: var(--mono); font-size: 9px; letter-spacing: 1.3px; text-transform: uppercase; color: var(--teal-bright); background: var(--teal-wash); border-radius: 12px; padding: 2px 8px; margin-bottom: 8px; }
+  .passage { border-left: 2px solid var(--teal); padding: 8px 12px; margin-top: 10px; background: var(--bg-deep); border-radius: 0 8px 8px 0; font-size: 13px; color: var(--muted); font-style: italic; }
+  .passage .src { display: block; font-family: var(--mono); font-style: normal; font-size: 10px; margin-top: 6px; color: var(--teal); }
+
+  .controls { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .pill { font-family: var(--mono); font-size: 11.5px; padding: 8px 14px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); border-radius: 20px; cursor: pointer; transition: all .15s; }
+  .pill:hover { border-color: var(--teal); color: var(--teal-bright); }
+  .pill.warm { border-color: #3a2a17; color: var(--clay); }
+  .pill.warm:hover { background: var(--clay-wash); }
+
+  .composer-row { display: flex; gap: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 13px; padding: 6px; }
+  .composer-row:focus-within { border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-wash); }
+  .composer-row input { flex: 1; padding: 11px 14px; border: none; background: transparent; font-family: var(--sans); font-size: 14.5px; color: var(--ink); }
+  .composer-row input:focus { outline: none; }
+  .send { padding: 11px 22px; border: none; background: var(--teal); color: #fff; font-family: var(--mono); font-size: 12.5px; cursor: pointer; border-radius: 9px; }
+  .send:hover { background: var(--teal-bright); }
+
+  .loading { display: none; text-align: center; padding: 30px; font-family: var(--mono); font-size: 13px; color: var(--teal); }
+  .empty { text-align: center; padding: 40px 20px; color: var(--muted); font-family: var(--mono); font-size: 13px; border: 1px dashed var(--line); border-radius: 13px; }
+  .bar { height: 4px; background: var(--line-soft); border-radius: 4px; overflow: hidden; margin: 14px 0 0; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--teal); transition: width .3s; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <div class="brandrow">
+      <div class="mark">
+        <div class="glyph">?</div>
+        <div class="wordmark">socr<span>atic</span></div>
+      </div>
+      <div class="kicker">a tutor that asks,<br>not tells</div>
+    </div>
+    <h1 class="lede">Load your course PDFs and let students <em>reason their way to understanding</em> through guided questions.</h1>
+    <span class="nokey">● runs entirely in your browser · no API key · no server</span>
+  </div>
+</header>
+
+<div class="wrap setup">
+  <div class="panelcard">
+    <div class="row">
+      <label class="filebtn" for="pdfs" id="pdfbtn">↑ Load course PDFs</label>
+      <input type="file" id="pdfs" accept="application/pdf" multiple>
+      <span class="filenames" id="filenames">Select one or more PDFs from your folder</span>
+    </div>
+    <div class="hint">
+      Everything happens locally. The tutor reads your PDFs, finds the key concepts, and builds a Socratic questioning ladder for each one. Nothing is uploaded and no API key is needed.
+    </div>
+    <div class="bar" id="bar" style="display:none;"><i id="barfill"></i></div>
+    <div class="doclist" id="doclist"></div>
+  </div>
+</div>
+
+<div class="wrap loading" id="loading">Reading your documents and mapping concepts…</div>
+
+<div class="wrap concepts" id="conceptsView">
+  <div class="section-title">Pick a concept to explore</div>
+  <div class="section-sub" id="conceptsSub"></div>
+  <div class="concept-grid" id="conceptGrid"></div>
+</div>
+
+<div class="wrap session" id="sessionView">
+  <div class="session-head">
+    <h2 id="sessionTitle">Concept</h2>
+    <button class="backbtn" id="backbtn">← All concepts</button>
+  </div>
+  <div class="chat" id="chat"></div>
+  <div class="controls" id="controls"></div>
+  <div class="composer-row">
+    <input type="text" id="answer" placeholder="Type your thinking here…">
+    <button class="send" id="send">Respond</button>
+  </div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+
+// Set up the pdf.js worker robustly. Loading the worker from a blob URL avoids the
+// "Setting up fake worker" fallback that happens when the page is opened from disk
+// (file://) or when a cross-origin worker fetch is blocked.
+const PDF_VER = "3.11.174";
+// Run pdf.js without a separate worker. Loading a worker from disk (file://) or via a
+// blob URL fails in many browsers, so we disable it and extract text on the main thread.
+// Note: NONE of this involves any web/API key or network calls to a model. The
+// "Deprecated API" / "fake worker" / "TT: undefined function" lines are internal pdf.js
+// console notices about its own functions and PDF fonts; they are harmless. We quiet them below.
+try { pdfjsLib.GlobalWorkerOptions.workerSrc = ""; } catch (e) {}
+try { pdfjsLib.VerbosityLevel && (pdfjsLib.GlobalWorkerOptions.verbosity = pdfjsLib.VerbosityLevel.ERRORS); } catch (e) {}
+try { if (pdfjsLib.setVerbosityLevel) pdfjsLib.setVerbosityLevel(0); } catch (e) {}
+const workerReady = Promise.resolve();
+
+let DOCS = [];        // { name, pages: [text,...] }
+let CONCEPTS = [];    // { title, summary, keyTerms, passage, source, page }
+let current = null;   // active concept session state
+
+const STOP = new Set(("the of and to a in is that it for on as are with be this by an or from at which we can also not have has was were will their they its into such been more other these two use used using each may than then them do does about we you your our".split(" ")));
+
+/* ---------- PDF loading ---------- */
+$("pdfs").addEventListener("change", async e => {
+  const files = [...e.target.files];
+  if (!files.length) return;
+  $("filenames").textContent = files.length + " file(s) selected";
+  $("bar").style.display = "block";
+  $("loading").style.display = "block";
+  $("conceptsView").style.display = "none";
+  $("sessionView").style.display = "none";
+  DOCS = [];
+
+  await workerReady;
+
+  for (let i = 0; i < files.length; i++) {
+    try {
+      const buf = await files[i].arrayBuffer();
+      const pdf = await pdfjsLib.getDocument({ data: buf, disableWorker: true, isEvalSupported: false, verbosity: 0 }).promise;
+      const pages = [];
+      for (let p = 1; p <= pdf.numPages; p++) {
+        const page = await pdf.getPage(p);
+        const content = await page.getTextContent();
+        pages.push(content.items.map(it => it.str).join(" ").replace(/\s+/g, " ").trim());
+      }
+      DOCS.push({ name: files[i].name, pages });
+    } catch (err) {
+      console.error("Failed to read", files[i].name, err);
+    }
+    $("barfill").style.width = Math.round(((i+1)/files.length)*100) + "%";
+  }
+
+  renderDocList();
+  buildConcepts();
+  $("loading").style.display = "none";
+  $("bar").style.display = "none";
+});
+
+function renderDocList() {
+  const el = $("doclist");
+  el.style.display = "block";
+  el.innerHTML = DOCS.map(d =>
+    `<span class="doc-chip">📄 ${escapeHtml(d.name)} <span class="cnt">${d.pages.length}p</span></span>`
+  ).join("");
+}
+
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));}
+
+/* ---------- Concept extraction (fully local, no LLM) ---------- */
+function splitSentences(text) {
+  return text.replace(/([.!?])\s+/g, "$1\u0001").split("\u0001").map(s => s.trim()).filter(s => s.length > 30 && s.length < 400);
+}
+
+// score a sentence by how "definitional/important" it looks
+function sentenceScore(s) {
+  let score = 0;
+  if (/\b(is|are|refers to|means|defined as|is called|known as|describes)\b/i.test(s)) score += 3;
+  if (/\b(because|therefore|thus|so that|in order to|as a result)\b/i.test(s)) score += 2;
+  if (/\b(for example|such as|e\.g\.)\b/i.test(s)) score += 1;
+  const caps = (s.match(/\b[A-Z][a-z]{3,}\b/g) || []).length;
+  score += Math.min(caps, 3) * 0.4;
+  return score;
+}
+
+function keyTermsFrom(text, n) {
+  const freq = {};
+  (text.toLowerCase().match(/\b[a-z][a-z\-]{3,}\b/g) || []).forEach(w => {
+    if (STOP.has(w)) return;
+    freq[w] = (freq[w] || 0) + 1;
+  });
+  return Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0, n).map(x => x[0]);
+}
+
+function titleCase(term) { return term.replace(/(^|\s|-)([a-z])/g, (m,a,b)=>a+b.toUpperCase()); }
+
+function buildConcepts() {
+  CONCEPTS = [];
+  const seenTitles = new Set();
+
+  DOCS.forEach(doc => {
+    doc.pages.forEach((pageText, pi) => {
+      if (pageText.length < 120) return;
+      const sentences = splitSentences(pageText);
+      if (!sentences.length) return;
+
+      // find the best definitional sentences on this page
+      const ranked = sentences
+        .map(s => ({ s, sc: sentenceScore(s) }))
+        .sort((a,b) => b.sc - a.sc)
+        .filter(x => x.sc >= 3);
+
+      ranked.slice(0, 2).forEach(({ s }) => {
+        // derive a concept title from the subject of the sentence
+        const m = s.match(/^([A-Z][A-Za-z0-9 \-]{2,40}?)\s+(?:is|are|refers to|means|is called|is defined as)\b/);
+        let title = m ? m[1].trim() : titleCase(keyTermsFrom(s, 1)[0] || "");
+        title = title.replace(/^(A|An|The)\s+/i, "").trim();
+        if (!title || title.length < 3) return;
+        const norm = title.toLowerCase();
+        if (seenTitles.has(norm)) return;
+        seenTitles.add(norm);
+
+        CONCEPTS.push({
+          title,
+          summary: s.length > 150 ? s.slice(0, 147) + "…" : s,
+          keyTerms: keyTermsFrom(s, 4),
+          passage: s,
+          source: doc.name,
+          page: pi + 1
+        });
+      });
+    });
+  });
+
+  // fallback: if too few concepts, mine top terms per document
+  if (CONCEPTS.length < 3) {
+    DOCS.forEach(doc => {
+      const all = doc.pages.join(" ");
+      keyTermsFrom(all, 6).forEach(term => {
+        if (seenTitles.has(term)) return;
+        seenTitles.add(term);
+        // find a sentence containing the term
+        let passage = "";
+        for (const pageText of doc.pages) {
+          const hit = splitSentences(pageText).find(s => s.toLowerCase().includes(term));
+          if (hit) { passage = hit; break; }
+        }
+        CONCEPTS.push({
+          title: titleCase(term),
+          summary: passage ? (passage.length > 150 ? passage.slice(0,147)+"…" : passage) : "A key term from " + doc.name,
+          keyTerms: [term],
+          passage: passage || "",
+          source: doc.name,
+          page: 1
+        });
+      });
+    });
+  }
+
+  renderConcepts();
+}
+
+function renderConcepts() {
+  const grid = $("conceptGrid");
+  if (!CONCEPTS.length) {
+    $("conceptsView").style.display = "block";
+    grid.innerHTML = `<div class="empty">No clear concepts were found. Try PDFs with more explanatory text (these work best with textbook or lecture-note style content).</div>`;
+    $("conceptsSub").textContent = "";
+    return;
+  }
+  $("conceptsSub").textContent = CONCEPTS.length + " concepts found across " + DOCS.length + " document(s)";
+  grid.innerHTML = CONCEPTS.map((c, i) =>
+    `<div class="concept-card" data-i="${i}">
+      <h3>${escapeHtml(c.title)}</h3>
+      <p>${escapeHtml(c.summary)}</p>
+      <div class="src">${escapeHtml(c.source)} · p.${c.page}</div>
+    </div>`
+  ).join("");
+  grid.querySelectorAll(".concept-card").forEach(card =>
+    card.addEventListener("click", () => startSession(parseInt(card.dataset.i)))
+  );
+  $("conceptsView").style.display = "block";
+  $("sessionView").style.display = "none";
+}
+
+/* ---------- Socratic questioning engine (no LLM) ---------- */
+// Builds a ladder of prompts for a concept: open -> probe -> hint -> check -> reveal
+function buildLadder(c) {
+  const term = c.title;
+  const kt = c.keyTerms.filter(t => t.toLowerCase() !== term.toLowerCase());
+  return [
+    { stage: "open",  text: `Let's think about "${term}". Before we look at any definition, what do you already believe ${term.toLowerCase()} means? Put it in your own words.` },
+    { stage: "probe", text: `Good start. Why do you think ${term.toLowerCase()} matters here? What problem does it help with, or what would go wrong without it?` },
+    { stage: "connect", text: kt.length ? `How does ${term.toLowerCase()} relate to ${kt.slice(0,2).join(" and ")}? Try to describe the connection.` : `Can you give an example of ${term.toLowerCase()} in practice?` },
+    { stage: "hint", text: `Here's a nudge: focus on the words ${(kt.length?kt:[term.toLowerCase()]).slice(0,3).map(w=>`"${w}"`).join(", ")}. How might those shape a more precise definition?` },
+    { stage: "check", text: `Now try to state a complete definition of ${term.toLowerCase()} in one or two sentences, as if explaining it to a classmate.` }
+  ];
+}
+
+function startSession(i) {
+  const c = CONCEPTS[i];
+  current = { concept: c, ladder: buildLadder(c), step: 0, revealed: false };
+  $("sessionTitle").textContent = c.title;
+  $("chat").innerHTML = "";
+  $("conceptsView").style.display = "none";
+  $("sessionView").style.display = "block";
+  tutorSays(current.ladder[0]);
+  renderControls();
+  $("answer").focus();
+}
+
+function tutorSays(rung, extraHtml) {
+  const div = document.createElement("div");
+  div.className = "turn tutor";
+  div.innerHTML = `<div class="turn-role">Tutor</div><div class="bubble"><span class="stage-tag">${rung.stage}</span><p>${escapeHtml(rung.text)}</p>${extraHtml||""}</div>`;
+  $("chat").appendChild(div);
+  window.scrollTo(0, document.body.scrollHeight);
+}
+
+function youSay(text) {
+  const div = document.createElement("div");
+  div.className = "turn you";
+  div.innerHTML = `<div class="turn-role">You</div><div class="bubble"><p>${escapeHtml(text)}</p></div>`;
+  $("chat").appendChild(div);
+  window.scrollTo(0, document.body.scrollHeight);
+}
+
+// Lightweight local "understanding" check: does the answer overlap the source key terms?
+function evaluateAnswer(text) {
+  const c = current.concept;
+  const words = new Set((text.toLowerCase().match(/\b[a-z][a-z\-]{3,}\b/g) || []).filter(w => !STOP.has(w)));
+  const targets = new Set([c.title.toLowerCase(), ...c.keyTerms.map(t=>t.toLowerCase())]);
+  let overlap = 0;
+  targets.forEach(t => { if ([...words].some(w => w.includes(t) || t.includes(w))) overlap++; });
+  return { overlap, targetCount: targets.size, length: text.trim().split(/\s+/).length };
+}
+
+function advance(text) {
+  youSay(text);
+  const evalRes = evaluateAnswer(text);
+  const c = current.concept;
+
+  // Encouraging, non-answer-giving feedback based on overlap
+  let feedback;
+  if (evalRes.length < 4) {
+    feedback = "Try to say a bit more. Even a rough guess helps me see your thinking.";
+  } else if (evalRes.overlap === 0) {
+    feedback = `Interesting. You haven't yet touched the ideas the text leans on. What role might ${c.keyTerms[0] ? '"'+c.keyTerms[0]+'"' : "the core term"} play here?`;
+  } else if (evalRes.overlap < 2) {
+    feedback = "You're onto part of it. Push further: what's the piece you're still missing?";
+  } else {
+    feedback = "That's close to how the source frames it. Let's tighten it.";
+  }
+
+  // append feedback then move up the ladder
+  const fb = document.createElement("div");
+  fb.className = "turn tutor";
+  fb.innerHTML = `<div class="turn-role">Tutor</div><div class="bubble"><p>${escapeHtml(feedback)}</p></div>`;
+  $("chat").appendChild(fb);
+
+  current.step++;
+  if (current.step < current.ladder.length) {
+    setTimeout(() => tutorSays(current.ladder[current.step]), 250);
+  } else {
+    // end of ladder: offer synthesis, still not just handing the answer unless asked
+    setTimeout(() => {
+      const rung = { stage: "synthesis", text: `You've worked all the way through ${c.title.toLowerCase()}. Compare your final definition with the source when you're ready using "Show the source passage" — but only after you've committed to your own answer.` };
+      tutorSays(rung);
+    }, 250);
+  }
+  renderControls();
+  window.scrollTo(0, document.body.scrollHeight);
+}
+
+function renderControls() {
+  const c = current.concept;
+  const atEnd = current.step >= current.ladder.length;
+  const controls = [];
+  controls.push({ label: "Give me a hint", cls: "", fn: () => {
+    const hintStep = Math.min(current.step, current.ladder.length - 1);
+    const rung = current.ladder.find(r => r.stage === "hint") || current.ladder[hintStep];
+    tutorSays({ stage: "hint", text: rung.text });
+  }});
+  controls.push({ label: "I'm stuck, ask differently", cls: "", fn: () => {
+    const alt = { stage: "rephrase", text: `No problem. Let's approach it another way — if you had to teach ${c.title.toLowerCase()} to a younger student using an everyday analogy, what would you say?` };
+    tutorSays(alt);
+  }});
+  controls.push({ label: "Show the source passage", cls: "warm", fn: () => {
+    if (!c.passage) { tutorSays({ stage: "note", text: "I don't have a clean source sentence stored for this concept." }); return; }
+    tutorSays(
+      { stage: "reveal", text: "Here is what the source actually says. Notice where it matches your reasoning and where it adds something:" },
+      `<div class="passage">"${escapeHtml(c.passage)}"<span class="src">${escapeHtml(c.source)} · page ${c.page}</span></div>`
+    );
+    current.revealed = true;
+  }});
+  $("controls").innerHTML = "";
+  controls.forEach(ct => {
+    const b = document.createElement("button");
+    b.className = "pill " + ct.cls;
+    b.textContent = ct.label;
+    b.addEventListener("click", ct.fn);
+    $("controls").appendChild(b);
+  });
+}
+
+$("send").addEventListener("click", submit);
+$("answer").addEventListener("keydown", e => { if (e.key === "Enter") submit(); });
+function submit() {
+  const t = $("answer").value.trim();
+  if (!t) return;
+  $("answer").value = "";
+  advance(t);
+}
+$("backbtn").addEventListener("click", () => { $("sessionView").style.display = "none"; $("conceptsView").style.display = "block"; window.scrollTo(0,0); });
+</script>
+</body>
+</html>
